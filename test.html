@@ -1,0 +1,71 @@
+<html>
+  <head>
+    <script src="klass.js"></script>
+    <script src="jquery.js"></script>
+    <script src="ajax.js"></script>
+    <script src="postMessage.js"></script>
+    <script src="md5.js"></script>
+    <script src="base.js"></script>
+    <script src="parser.js"></script>
+    <style>
+      .sql{
+        width:800px;
+        height:200px;
+      }
+      table{
+        border: 1px solid #333;
+        border-collapse: collapse;
+      }
+      th{
+        background-color: #ccc;
+        border: 1px solid #333;
+      }
+      td{
+        border: 1px solid #333;
+      }
+
+    </style>
+  </head>
+  <body>
+    <p>Run Sql:</p>
+    <textarea class="sql">
+    </textarea>
+    <input class="run" type="button" value="run"/>
+    <br />
+    <table class="results"></table>
+    <script>
+      var apiKey = 'YOUR_FACTUAL_API_KEY_FOR_JSAPI';
+      var sqlJsapi = Jsapi.Sql.$new(apiKey);
+
+      $('textarea.sql').val('');
+      $('input.run').click(function(){
+        sqlJsapi.execute($('textarea.sql').val(), function (rows) {
+          populateResults(rows);
+        });
+      });
+
+      var $resultTable = $('table.results');
+      function populateResults (rows) {
+        var html = [];
+        for (var i=0,len=rows.length;i<len;i++){
+          var row = rows[i];
+          if (i == 0) {
+            html.push('<tr>');
+            for (var f in row) {
+              html.push('<th>'+f+'</th>');
+            }
+            html.push('</tr>');
+          }
+
+          html.push('<tr>');
+          for (var f in row) {
+            html.push('<td>'+row[f]+'</td>');
+          }
+          html.push('</tr>');
+        }
+        $resultTable.html(html.join());
+      }
+
+    </script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+This is an api that implements Factual's v2 jsapi with a sql-like dsl.
+Factual Server API doc: http://www.factual.com/devtools/serverAPI
+To get a Factual api key: http://www.factual.com/devtools
+License: GPL v2.
