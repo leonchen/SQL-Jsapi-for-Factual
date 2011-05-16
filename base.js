@@ -1,4 +1,6 @@
 Klass.create('Jsapi.Sql', {
+  apiKey: null,
+
   initialize: function (apiKey) {
     self.apiKey = apiKey;
     self.parser = Jsapi.Sql.Parser.$new();
@@ -36,7 +38,6 @@ Klass.create('Jsapi.Sql', {
     for (var i=0,len=raws.length;i<len;i++){
       var raw = raws[i];
       var row = {};
-      row.subjectKey = raw[0];
       for (var f in fieldsLookup) {
         row[f] = raw[fieldsLookup[f]];
       }
