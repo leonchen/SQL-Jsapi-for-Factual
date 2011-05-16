@@ -3,14 +3,23 @@ Klass.create('Jsapi.Sql', {
 
   initialize: function (apiKey) {
     self.apiKey = apiKey;
-    self.parser = Jsapi.Sql.Parser.$new();
+    self.sqlParser = Jsapi.Sql.SqlParser.$new();
+    self.payloadParser = Jsapi.Sql.PayloadParser.$new();
     self.ajax = Jsapi.Ajax;
   },
 
   execute: function (sql, callback) {
-    var params = self.parser.parse(sql);
+    if (/^\s*select/i.test(sql)) {
+      self.read(sql, callback);
+    } else {
+      self.input(sql, callback);
+    }
+  },
+
+  read: function (sql, callback) {
+    var params = self.sqlParser.parseRead(sql);
     
-    self.resultFields = params.fields;
+    var sqlFields = params.fields;
     delete params.fields;
 
     params.APIKey = self.apiKey;
@@ -18,48 +27,25 @@ Klass.create('Jsapi.Sql', {
     var url = 'http://www.factual.com/api/v2/tables/' + params.table + "/read.jsaml";
     delete params.table;
 
-    self.ajax.$get(url, params, function (res) {
-      rows = self.parseResult(res);
-      if (callback) callback(rows);
-    });
-  },
-
-  parseResult: function (res) {
-    var rows = [];
-    if (res.status != 'ok') {
-      console.log(res.error);
-      return rows;
-    }
-
-    rows.count = res.response.total_rows;
-    var raws   = res.response.data;
-    var fieldsLookup = _getFieldsLookup(res.response.fields);
-
-    for (var i=0,len=raws.length;i<len;i++){
-      var raw = raws[i];
-      var row = {};
-      for (var f in fieldsLookup) {
-        row[f] = raw[fieldsLookup[f]];
+    self.ajax.$get(url, params, function (parser, sqlFields, callback) {
+      return function (res) {
+        var rows = parser.parseReadPayload(res, sqlFields);
+        if (callback) callback(rows);
       }
-      rows.push(row);
-    }
-
-    return rows;
+    }(self.payloadParser, sqlFields, callback));
   },
 
-  _getFieldsLookup: function (fields) {
-    var lookup = {};
-    var allFields = false;
+  input: function (sql, callback) {
+    var params = self.sqlParser.parseInput(sql);
+    params.APIKey = self.apiKey;
 
-    if (self.resultFields == '*') {
-      self.resultFields = fields;
-      allFields = true;
-    }
+    var table = params.table;
+    delete params.table;
+    var url = 'http://www.factual.com/api/v2/tables/' + table + "/input";
 
-    for (var i=0,len=self.resultFields.length; i<len; i++){
-      var field = self.resultFields[i];
-      lookup[field] = allFields ? i : $.inArray(field, fields);
-    }
-    return lookup;
+    self.ajax.$get(url, params, function (res) {
+      if (res.response.subjectKey) self.read("select * from " + table + " where subject_key='"+res.response.subjectKey+"'", callback);
+    });
   }
+
 });

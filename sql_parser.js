@@ -1,8 +1,9 @@
-Klass.create('Jsapi.Sql.Parser', {
-  sqlRegExp: new RegExp("^select\\s([\\s_a-z0-9,]*[_a-z0-9*])\\s+from\\s+([\\w]{6})(\\s.+[^\\s;])?[\\s;]*$", "i"),
+Klass.create('Jsapi.Sql.SqlParser', {
+  selectSqlRegExp: new RegExp("^select\\s([\\s_a-z0-9,]*[_a-z0-9*])\\s+from\\s+([\\w]{6})(\\s.+[^\\s;])?[\\s;]*$", "i"),
+  inputSqlRegExp: new RegExp("^insert\\s+into\\s+([\\w]{6})\\s+\\(([\\s_a-z0-9,]+)\\)\\s+values\\s+\\((.+)\\)[\\s;]*$"),
 
-  parse: function (sql) {
-    var m = sql.match(self.sqlRegExp);
+  parseRead: function (sql) {
+    var m = sql.match(self.selectSqlRegExp);
 
     var res        = {};
     res.fields     = _parseSelect(m[1]);
@@ -21,8 +22,32 @@ Klass.create('Jsapi.Sql.Parser', {
       if (offset >= 0) res.offset = offset;
 
       var filters = _parseWhere(statements);
-      if (filters) res.filters = filters;
+      if (filters) {
+        if (filters.subject_key) {
+          res.subject_key = filters.subject_key['$eq'];
+        } else {
+          res.filters = JSON.stringify(filters);
+        }
+      }
     }
+    return res;
+  },
+
+  parseInput: function (sql) {
+    var m = sql.match(self.inputSqlRegExp);
+    
+    var res = {};
+    res.table  = _parseTable(m[1]);
+    var fields = _parseSelect(m[2]);
+    var values = _parseValues(m[3]); 
+
+    var valuesHash = _getInputValues(fields, values);
+    if (valuesHash.subject_key) {
+      res.subject_key = valuesHash.subject_key;
+      delete valuesHash.subject_key;
+    }
+    res.values = JSON.stringify(valuesHash); 
+
     return res;
   },
 
@@ -35,6 +60,21 @@ Klass.create('Jsapi.Sql.Parser', {
 
   _parseTable: function (s) {
     return $.trim(s);
+  },
+
+  _parseValues: function (s) {
+    var statements = _parseStatements(s);
+    return $.grep(statements, function (v, i) {
+      return i%2 == 0;
+    }); 
+  },
+
+  _getInputValues: function (fields, values) {
+    var hash = {};
+    for (var i=0,len=fields.length; i<len; i++) {
+      if (values[i] !== undefined) hash[fields[i]] = values[i];
+    }
+    return hash;
   },
 
   _parseStatements: function (s) {
@@ -88,13 +128,13 @@ Klass.create('Jsapi.Sql.Parser', {
     if (statements[0] != 'where') return null;
     statements.shift();
 
-    var filters = FiltersNode.$new();
+    var filters = Jsapi.Sql.SqlParser.FiltersNode.$new();
     var currentNode = filters; 
     var startPoint = true;
     for (var i=0,len=statements.length;i<len;i++) {
       var st = statements[i];
       if (st == '(' && !/^(\)|,)$/i.test(statements[i+2])) {
-        var node = FiltersNode.$new();
+        var node = Jsapi.Sql.SqlParser.FiltersNode.$new();
         startPoint = true;
         node.parent = currentNode;
         currentNode.add(node);
@@ -106,7 +146,7 @@ Klass.create('Jsapi.Sql.Parser', {
         currentNode.logic = st;
         startPoint = true;
       } else if (startPoint == true) {
-        var filter = FilterNode.$new();
+        var filter = Jsapi.Sql.SqlParser.FilterNode.$new();
         filter.field = st;
         filter.operator = statements[i+1];
         if (statements[i+2] == '(') {
@@ -127,11 +167,10 @@ Klass.create('Jsapi.Sql.Parser', {
       }
     }
 
-    return JSON.stringify(_parseFilters(filters)); 
+    return _parseFilters(filters); 
   },
 
   _parseFilters: function (filters) {
-    //return {"number":{"$gt":5}};
     if (filters.children) {
       var obj = {};
       if (filters.children.length == 1) {
@@ -225,7 +264,7 @@ Klass.create('Jsapi.Sql.Parser', {
   }
 });
 
-Klass.create('FiltersNode', {
+Klass.create('Jsapi.Sql.SqlParser.FiltersNode', {
   parent: null,
   logic: 'and',
   add: function (node) {
@@ -234,7 +273,7 @@ Klass.create('FiltersNode', {
   }
 });
 
-Klass.create('FilterNode', {
+Klass.create('Jsapi.Sql.SqlParser.FilterNode', {
   field: null,
   operator: null,
   value: null
