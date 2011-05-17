@@ -1,6 +1,8 @@
 Klass.create('Jsapi.Sql.SqlParser', {
   selectSqlRegExp: new RegExp("^select\\s([\\s_a-z0-9,]*[_a-z0-9*])\\s+from\\s+([\\w]{6})(\\s.+[^\\s;])?[\\s;]*$", "i"),
-  inputSqlRegExp: new RegExp("^insert\\s+into\\s+([\\w]{6})\\s+\\(([\\s_a-z0-9,]+)\\)\\s+values\\s+\\((.+)\\)[\\s;]*$"),
+  inputSqlRegExp: new RegExp("^insert\\s+into\\s+([\\w]{6})\\s+\\(([\\s_a-z0-9,$]+)\\)\\s+values\\s+\\((.+)\\)[\\s;]*$"),
+  defaultLimit: 20,
+  defaultOffset: 0,
 
   parseRead: function (sql) {
     var m = sql.match(self.selectSqlRegExp);
@@ -16,15 +18,15 @@ Klass.create('Jsapi.Sql.SqlParser', {
       if (sort) res.sort = sort;
 
       var limit = _parseLimit(statements);
-      if (limit >= 0) res.limit = limit;
+      if (limit > 0) res.limit = limit;
 
       var offset = _parseOffset(statements);
       if (offset >= 0) res.offset = offset;
 
       var filters = _parseWhere(statements);
       if (filters) {
-        if (filters.subject_key) {
-          res.subject_key = filters.subject_key['$eq'];
+        if (filters.$subject_key) {
+          res.subject_key = filters.$subject_key['$eq'];
         } else {
           res.filters = JSON.stringify(filters);
         }
@@ -42,9 +44,9 @@ Klass.create('Jsapi.Sql.SqlParser', {
     var values = _parseValues(m[3]); 
 
     var valuesHash = _getInputValues(fields, values);
-    if (valuesHash.subject_key) {
-      res.subject_key = valuesHash.subject_key;
-      delete valuesHash.subject_key;
+    if (valuesHash.$subject_key) {
+      res.subject_key = valuesHash.$subject_key;
+      delete valuesHash.$subject_key;
     }
     res.values = JSON.stringify(valuesHash); 
 
@@ -165,6 +167,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
         } else {
           filter.operator = statements[i+1];
           filter.value = statements[i+2];
+          if (st == '$subject_key') return _buildFilter(filter);
           i+=2;
         }
         currentNode.add(filter);
@@ -195,17 +198,26 @@ Klass.create('Jsapi.Sql.SqlParser', {
   _buildFilter: function (f) {
     var field = f.field;
     var operator = f.operator;
+    if (operator == null) throw('sql error: missing filter operator for ' + field);
     var value = f.value;
+    if (value == null) throw('sql error: missing filter value for ' + field);
+
     var obj = {};
-    if (field == '$location' && operator == 'within' && (value instanceof Array) && value.length == 3) {
+    if (field == '$location') {
+      if (operator != 'within') throw('sql error: "$location" only support operator "within"');
+      if (!((value instanceof Array) && value.length == 3)) throw('sql error: value for "$location within" should be (latitude, longitude, radius)');
       obj['$loc'] = {"$within": {"$center": [[parseFloat(value[0]), parseFloat(value[1])], parseInt(value[2])]}};
-    } else if (field == '$fulltext' && operator == 'search') {
+    } else if (field == '$fulltext') {
+      if (operator != 'search') throw('sql error: "$fulltext" only support operator "search"'); 
       obj['$search'] = value;
     } else if (operator == 'is') {
+      if (value != 'null' && value != 'notNull') throw('sql error: "is" is only for "null" or "not null"');
       obj[field] = {"$blank": (value == 'null' ? true : false)};
     } else {
+      var filterOperator = _parseFilterOperator(operator);
+      if (filterOperator == null) throw('sql error: unknow filter operator: '+operator);
       obj[field] = {};
-      obj[field][_parseFilterOperator(operator)] = value;
+      obj[field][filterOperator] = value;
     }
 
     return obj;
@@ -222,6 +234,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
       case '!=': return '$neq';
       case 'in': return '$in';
       case 'beginwith': return '$bw';
+      default: return null;
     } 
   },
 
@@ -249,7 +262,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
   },
 
   _parseLimit: function (statements) {
-    var limit = 20;
+    var limit = self.defaultLimit;
     var limitIdx = $.inArray('limit', statements);
     if (limitIdx >= 0 && /^\d+$/.test(statements[limitIdx+1])) {
       limit = parseInt(statements[limitIdx+1]);
@@ -259,7 +272,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
   },
 
   _parseOffset: function (statements) {
-    var offset = 0;
+    var offset = self.defaultOffset;
     var offsetIdx = $.inArray('offset', statements);
     if (offsetIdx >= 0 && /^\d+$/.test(statements[offsetIdx+1])) {
       offset = parseInt(statements[offsetIdx+1]);

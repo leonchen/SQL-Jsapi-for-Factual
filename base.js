@@ -44,7 +44,11 @@ Klass.create('Jsapi.Sql', {
     var url = 'http://www.factual.com/api/v2/tables/' + table + "/input";
 
     self.ajax.$get(url, params, function (res) {
-      if (res.response.subjectKey) self.read("select * from " + table + " where subject_key='"+res.response.subjectKey+"'", callback);
+      if (res.status == 'ok') {
+        self.read("select * from " + table + " where $subject_key='"+res.response.subjectKey+"'", callback);
+      } else {
+        throw('response error: '+res.error);
+      }
     });
   }
 

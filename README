@@ -2,3 +2,20 @@ This is an api that implements Factual's v2 jsapi with a sql-like dsl.
 Factual Server API doc: http://www.factual.com/devtools/serverAPI
 To get a Factual api key: http://www.factual.com/devtools
 License: GPL v2.
+
+call: Jsapi.Sql.$new(yourApiKey).execute(sql, callback);
+see source code of test.html to get sample callback function
+
+*read:
+default limit is 20 and default offset is 0
+support operators: <,<=,>,>=,=,<>,!=,in,beginwith,within(for $location),is(null or not null),search(for $fulltext)
+examples:
+select * from table1 where date>='2008-05-01' and (number in (7,8,9) or number < 4 or number = 5) limit 10 offset 1
+select * from table2 where $location within (38.678279, -121.294412, 500) and name beginwith 'star' and tel is not null
+select * from table2 where $fulltext search 'starbuck'
+
+*input:
+**insert new row:
+insert into table1 (holiday, number, date) values ('New Holiday', 111, '2011-11-11')
+**update existing row:
+insert into table1 ($subject_key, number) values ('aqelv8_7K-NN-Mn4CPS1Lv3NRA0', 222)

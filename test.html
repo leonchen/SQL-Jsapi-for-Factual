@@ -9,11 +9,12 @@
     <script src="sql_parser.js"></script>
     <script src="payload_parser.js"></script>
     <style>
-      .sql{
+      textarea.sql{
         width: 800px;
         height: 200px;
+        font-size: 16px;
       }
-      .apiKey{
+      input.apiKey{
         width: 600px;
       }
       table{
@@ -37,16 +38,20 @@
     </textarea>
     <input class="run" type="button" value="run"/>
     <br />
+    <p>Total: <span class="count" ></span> rows</p>
     <table class="results"></table>
     <script>
       var sqlJsapi = Jsapi.Sql.$new();
 
-      $('textarea.sql').val('');
+      var $sql = $('textarea.sql');
+      var $apiKey = $('input.apiKey');
+      var $resultTable = $('table.results');
+      var $count = $('.count');
+
       $('input.run').click(function(){
-        var apiKey = $('.apiKey').val();
+        var apiKey = $apiKey.val();
         if (apiKey.length != 64) {
-          alert('apiKey should have 64 chars');
-          return;
+          throw('request error: apiKey is invalid');
         }
         sqlJsapi.apiKey = apiKey;
         sqlJsapi.execute($('textarea.sql').val(), function (rows) {
@@ -54,12 +59,12 @@
         });
       });
 
-      var $resultTable = $('table.results');
       function populateResults (rows) {
         var html = [];
+        var fields = rows.fields;
 
         html.push('<tr>');
-        $.each(rows.fields, function (i,f) {
+        $.each(fields, function (i,f) {
           html.push('<th>'+f+'</th>');
         });
         html.push('</tr>');
@@ -68,12 +73,13 @@
           var row = rows[i];
 
           html.push('<tr>');
-            for (var f in row) {
-            html.push('<td>'+row[f]+'</td>');
+          for (var idx in fields) {
+            html.push('<td>'+row[fields[idx]]+'</td>');
           }
           html.push('</tr>');
         }
         $resultTable.html(html.join(''));
+        $count.html(rows.count);
       }
 
     </script>
