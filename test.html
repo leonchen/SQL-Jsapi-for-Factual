@@ -57,18 +57,18 @@
       var $resultTable = $('table.results');
       function populateResults (rows) {
         var html = [];
+
+        html.push('<tr>');
+        $.each(rows.fields, function (i,f) {
+          html.push('<th>'+f+'</th>');
+        });
+        html.push('</tr>');
+
         for (var i=0,len=rows.length;i<len;i++){
           var row = rows[i];
-          if (i == 0) {
-            html.push('<tr>');
-            for (var f in row) {
-              html.push('<th>'+f+'</th>');
-            }
-            html.push('</tr>');
-          }
 
           html.push('<tr>');
-          for (var f in row) {
+            for (var f in row) {
             html.push('<td>'+row[f]+'</td>');
           }
           html.push('</tr>');

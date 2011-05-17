@@ -7,9 +7,10 @@ Klass.create('Jsapi.Sql.PayloadParser', {
     }
 
     rows.count = res.response.total_rows;
+    rows.fields = sqlFields == '*' ? res.response.fields : sqlFields;
+
     var raws   = res.response.data;
     var fieldsLookup = _getFieldsLookup(res.response.fields, sqlFields);
-
     for (var i=0,len=raws.length;i<len;i++){
       var raw = raws[i];
       var row = {};

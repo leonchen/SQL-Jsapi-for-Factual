@@ -110,7 +110,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
           if (unit.length > 0) statements.push(unit.join('').toLowerCase());
           statements.push(c);
           unit = [];
-        } else if ((/[_\w]/.test(c) && inOperator) || (/[^_\w]/.test(c) && !inOperator)) {
+        } else if ((/[_\w$.\-]/.test(c) && inOperator) || (/[^_\w.\-$]/.test(c) && !inOperator)) {
           inOperator = !inOperator;
           if (unit.length > 0) statements.push(unit.join('').toLowerCase());
           unit = [c];
@@ -148,8 +148,12 @@ Klass.create('Jsapi.Sql.SqlParser', {
       } else if (startPoint == true) {
         var filter = Jsapi.Sql.SqlParser.FilterNode.$new();
         filter.field = st;
-        filter.operator = statements[i+1];
-        if (statements[i+2] == '(') {
+        if (statements[i+1] == 'is' && statements[i+2] == 'not' && statements[i+3] == 'null') {
+          filter.operator = 'is';
+          filter.value = 'notNull';
+          i += 3;
+        } else if (statements[i+2] == '(') {
+          filter.operator = statements[i+1];
           var values = [];
           for (var j=i+3;j<len;j++){
             var v = statements[j];
@@ -159,6 +163,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
           filter.value = values;
           i = j;
         } else {
+          filter.operator = statements[i+1];
           filter.value = statements[i+2];
           i+=2;
         }
@@ -193,7 +198,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
     var value = f.value;
     var obj = {};
     if (field == '$location' && operator == 'within' && (value instanceof Array) && value.length == 3) {
-      obj['$loc'] = {"$within": {"$center": [[value[0], value[1]], value[2]]}};
+      obj['$loc'] = {"$within": {"$center": [[parseFloat(value[0]), parseFloat(value[1])], parseInt(value[2])]}};
     } else if (field == '$fulltext' && operator == 'search') {
       obj['$search'] = value;
     } else if (operator == 'is') {
