@@ -1,5 +1,6 @@
 Klass.create('Jsapi.Sql', {
   apiKey: null,
+  onError: null,
 
   initialize: function (apiKey) {
     self.apiKey = apiKey;
@@ -9,10 +10,14 @@ Klass.create('Jsapi.Sql', {
   },
 
   execute: function (sql, callback) {
-    if (/^\s*select/i.test(sql)) {
-      self.read(sql, callback);
-    } else {
-      self.input(sql, callback);
+    try {
+      if (/^\s*select/i.test(sql)) {
+        self.read(sql, callback);
+      } else {
+        self.input(sql, callback);
+      }
+    } catch (e) {
+      if (self.onError) self.onError(e);
     }
   },
 

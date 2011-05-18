@@ -66,9 +66,14 @@ Klass.create('Jsapi.Sql.SqlParser', {
 
   _parseValues: function (s) {
     var statements = _parseStatements(s);
-    return $.grep(statements, function (v, i) {
-      return i%2 == 0;
-    }); 
+    var values = [];
+    for (var i=0,len=statements.length; i<len; i++) {
+      var value = statements[i];
+      if (value === ',') continue;
+      if (value instanceof Array) value = value[0];
+      values.push(value);
+    }
+    return values;
   },
 
   _getInputValues: function (fields, values) {
@@ -91,7 +96,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
       if (inQuote) {
         if (c == "'" && !inEscape) {
           inQuote = false;
-          if (unit.length > 0) statements.push(unit.join(''));
+          if (unit.length > 0) statements.push([unit.join('')]);
           unit = [];
         } else if (c == '\\' && !inEscape) {
           inEscape = true;
@@ -133,15 +138,22 @@ Klass.create('Jsapi.Sql.SqlParser', {
     var filters = Jsapi.Sql.SqlParser.FiltersNode.$new();
     var currentNode = filters; 
     var startPoint = true;
+    var bracketsDepth = 0;
     for (var i=0,len=statements.length;i<len;i++) {
       var st = statements[i];
-      if (st == '(' && !/^(\)|,)$/i.test(statements[i+2])) {
-        var node = Jsapi.Sql.SqlParser.FiltersNode.$new();
-        startPoint = true;
-        node.parent = currentNode;
-        currentNode.add(node);
-        currentNode = node;
-      } else if (st == ')') {
+      if (st === '(') {
+        bracketsDepth++;
+        if (statements[i+1] === ')') throw("sql error: syntax error for '()'");
+        if (statements[i+2] !== ')' && statements[i+2] !== ',') {
+          var node = Jsapi.Sql.SqlParser.FiltersNode.$new();
+          startPoint = true;
+          node.parent = currentNode;
+          currentNode.add(node);
+          currentNode = node;
+        }
+      } else if (st === ')') {
+        if (bracketsDepth <= 0) throw("sql error: un-paired ')'");
+        bracketsDepth--;
         startPoint = false;
         currentNode = currentNode.parent;
       } else if (startPoint == false && /^(or|and)$/i.test(st)){
@@ -150,30 +162,38 @@ Klass.create('Jsapi.Sql.SqlParser', {
       } else if (startPoint == true) {
         var filter = Jsapi.Sql.SqlParser.FilterNode.$new();
         filter.field = st;
-        if (statements[i+1] == 'is' && statements[i+2] == 'not' && statements[i+3] == 'null') {
+        if (statements[i+1] === 'is' && statements[i+2] === 'not' && statements[i+3] === 'null') {
           filter.operator = 'is';
           filter.value = 'notNull';
           i += 3;
-        } else if (statements[i+2] == '(') {
+        } else if (statements[i+2] === '(') {
+          bracketsDepth++;
           filter.operator = statements[i+1];
           var values = [];
           for (var j=i+3;j<len;j++){
             var v = statements[j];
-            if (v == ')') break;
-            if (v != ',') values.push(v);
+            if (v === '(') throw("sql error: duplicated '('");
+            if (v === ')') {
+              bracketsDepth--;
+              break;
+            }
+            if (v !== ',') values.push(v);
           }
           filter.value = values;
           i = j;
         } else {
           filter.operator = statements[i+1];
-          filter.value = statements[i+2];
-          if (st == '$subject_key') return _buildFilter(filter);
+          var value = statements[i+2];
+          if (value instanceof Array) value = value[0];
+          filter.value = value; 
+          if (st === '$subject_key') return _buildFilter(filter);
           i+=2;
         }
         currentNode.add(filter);
         startPoint = false;
       }
     }
+    if (bracketsDepth != 0) throw('sql error: unclosed brackets')
     if (startPoint) throw('sql error: missing filters definition');
 
     return _parseFilters(filters); 

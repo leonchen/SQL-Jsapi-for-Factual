@@ -28,6 +28,12 @@
       td{
         border: 1px solid #333;
       }
+      .errors{
+        color: red;
+      }
+      .results{
+        display: none;
+      }
 
     </style>
   </head>
@@ -37,16 +43,25 @@
     <textarea class="sql">
     </textarea>
     <input class="run" type="button" value="run"/>
-    <br />
-    <p>Total: <span class="count" ></span> rows</p>
-    <table class="results"></table>
+    <div class="errors"></div>
+    <div class="results">
+      <p>Total: <span class="count" ></span> rows</p>
+      <table class="summary"></table>
+    </div>
     <script>
-      var sqlJsapi = Jsapi.Sql.$new();
 
       var $sql = $('textarea.sql');
       var $apiKey = $('input.apiKey');
-      var $resultTable = $('table.results');
+      var $errors = $('.errors');
+      var $results = $('.results');
       var $count = $('.count');
+      var $resultTable = $('table.summary');
+
+      var sqlJsapi = Jsapi.Sql.$new();
+      sqlJsapi.onError = function (e) {
+        $results.hide();
+        $errors.show().html(e);
+      }
 
       $('input.run').click(function(){
         var apiKey = $apiKey.val();
@@ -63,7 +78,7 @@
         var html = [];
         var fields = rows.fields;
 
-        html.push('<tr>');
+        html.push('<tr><th>$subject_key</th>');
         $.each(fields, function (i,f) {
           html.push('<th>'+f+'</th>');
         });
@@ -72,7 +87,7 @@
         for (var i=0,len=rows.length;i<len;i++){
           var row = rows[i];
 
-          html.push('<tr>');
+          html.push('<tr><td>'+row.subjectKey+'</td>');
           for (var idx in fields) {
             html.push('<td>'+row[fields[idx]]+'</td>');
           }
@@ -80,6 +95,9 @@
         }
         $resultTable.html(html.join(''));
         $count.html(rows.count);
+
+        $errors.hide();
+        $results.show();
       }
 
     </script>
