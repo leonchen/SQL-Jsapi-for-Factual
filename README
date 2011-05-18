@@ -8,10 +8,10 @@ see source code of test.html to get sample callback function
 
 read:
 default limit is 20 and default offset is 0
-support operators: <,<=,>,>=,=,<>,!=,in,beginwith,within(for $location),is(null or not null),search(for $fulltext)
+support operators: <,<=,>,>=,=,<>,!=,in,like,within(for $location),is(null or not null),search(for $fulltext)
 examples:
 select * from table1 where date>='2008-05-01' and (number in (7,8,9) or number < 4 or number = 5) limit 10 offset 1
-select * from table2 where $location within (38.678279, -121.294412, 500) and name beginwith 'star' and tel is not null
+select * from table2 where $location within (38.678279, -121.294412, 500) and name like '%star%' and tel is not null
 select * from table2 where $fulltext search 'starbuck'
 
 input:

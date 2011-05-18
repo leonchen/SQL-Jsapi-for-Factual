@@ -54,7 +54,7 @@
           throw('request error: apiKey is invalid');
         }
         sqlJsapi.apiKey = apiKey;
-        sqlJsapi.execute($('textarea.sql').val(), function (rows) {
+        sqlJsapi.execute($sql.val(), function (rows) {
           populateResults(rows);
         });
       });
