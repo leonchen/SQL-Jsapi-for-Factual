@@ -174,6 +174,7 @@ Klass.create('Jsapi.Sql.SqlParser', {
         startPoint = false;
       }
     }
+    if (startPoint) throw('sql error: missing filters definition');
 
     return _parseFilters(filters); 
   },
@@ -213,6 +214,21 @@ Klass.create('Jsapi.Sql.SqlParser', {
     } else if (operator == 'is') {
       if (value != 'null' && value != 'notNull') throw('sql error: "is" is only for "null" or "not null"');
       obj[field] = {"$blank": (value == 'null' ? true : false)};
+    } else if (operator == 'like') {
+      if (value[0] == '%') {
+        value = value.slice(1);
+        if (value[value.length-1] == '%') {
+          value = value.slice(0, -1);
+          obj[field] = {"$contains": value};
+        } else {
+          obj[field] = {"$ew": value};
+        }
+      } else if (value[value.length-1] == '%') {
+        value = value.slice(0, -1);
+        obj[field] = {"$bw": value};
+      } else {
+        obj[field] = {"$eq": value};
+      }
     } else {
       var filterOperator = _parseFilterOperator(operator);
       if (filterOperator == null) throw('sql error: unknow filter operator: '+operator);
@@ -233,7 +249,6 @@ Klass.create('Jsapi.Sql.SqlParser', {
       case '<>': return '$neq';
       case '!=': return '$neq';
       case 'in': return '$in';
-      case 'beginwith': return '$bw';
       default: return null;
     } 
   },
